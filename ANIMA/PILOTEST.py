@@ -83,7 +83,6 @@ PHILIPPINE_ZONES = [
     "Karst Cave System"
 ]
 
-# SUGGESTION 2: Physical Eco-Zone Capacity Limits
 ZONE_CAPACITIES = {
     "Lowland Dipterocarp Forest": 5,
     "Mangrove & Coastal Wetland": 4,
@@ -100,7 +99,6 @@ SPECIES_CLASSES = [
     "Invertebrates"
 ]
 
-# SUGGESTION 5: Status Badges / Health Tags
 STATUS_TAGS = [
     "🟢 Cleared / Healthy",
     "🟡 Under Observation",
@@ -166,7 +164,6 @@ class DoublyLinkedList:
             curr = curr.next
         return records
 
-# SUGGESTION 3: Doubly Linked List for Archived / Released Animals
 class ArchiveDLLNode:
     def __init__(self, animal_id, name, species, zone, release_date, release_notes):
         self.animal_id = animal_id
@@ -396,7 +393,7 @@ c3.metric("Next Registry ID", f"#{st.session_state.id_counter}", delta="Auto-Ass
 st.divider()
 
 # ==========================================================
-# 7. MODULE 1: ANIMAL REGISTRY & MAP (WITH CAPACITY & ARCHIVE)
+# 7. MODULE 1: ANIMAL REGISTRY & MAP
 # ==========================================================
 
 if "Animal Registry" in selected_page:
@@ -417,7 +414,6 @@ if "Animal Registry" in selected_page:
             submit_reg = st.form_submit_button("Complete Registration")
             
             if submit_reg and reg_name:
-                # SUGGESTION 2: Capacity Check
                 current_occ = get_zone_occupancy(st.session_state.map_root, reg_zone)
                 max_cap = ZONE_CAPACITIES[reg_zone]
                 
@@ -450,48 +446,6 @@ if "Animal Registry" in selected_page:
                     st.session_state.id_counter += 1
                     st.success(f"Registered {reg_name} (ID: #{aid}) into {reg_zone}!")
                     st.rerun()
-
-        st.divider()
-        
-        # SUGGESTION 3: REHABILITATION & RELEASE ARCHIVING FEATURE
-        st.markdown("### 🌿 Discharge & Release / Delete Animal")
-        st.caption("Release animals back to the wild (archiving history) or perform permanent record deletion.")
-        
-        all_records_del = []
-        in_order_bst(st.session_state.bst_root, all_records_del)
-        
-        if all_records_del:
-            del_options = {
-                f"#{a['Animal ID']} - {a['Name']} ({a['Species Class']}) [{a['Habitat Zone']}]": a 
-                for a in all_records_del
-            }
-            target_del_label = st.selectbox("Select Target Animal:", list(del_options.keys()), key="del_select_box")
-            target_animal = del_options[target_del_label]
-            target_del_id = target_animal["Animal ID"]
-            
-            action_type = st.radio("Action Type:", ["🌿 Release to Wild (Archive Node)", "🚨 Permanent Deletion"], horizontal=True)
-            release_note = st.text_input("Outcome / Release Notes", value="Successfully rehabilitated and released to natural habitat.")
-            
-            if st.button("Execute Record Action"):
-                if action_type == "🌿 Release to Wild (Archive Node)":
-                    # Append to Archive Doubly Linked List
-                    st.session_state.archive_dll.append(
-                        target_animal["Animal ID"],
-                        target_animal["Name"],
-                        target_animal["Species Class"],
-                        target_animal["Habitat Zone"],
-                        release_note
-                    )
-                    st.success(f"Archived and Released **{target_animal['Name']}** (ID: #{target_del_id}) to the wild!")
-                else:
-                    st.warning(f"Permanently deleted Animal ID #{target_del_id}.")
-                
-                # Remove from BST and General Tree
-                st.session_state.bst_root = delete_bst(st.session_state.bst_root, target_del_id)
-                delete_from_general_tree(st.session_state.map_root, target_del_id)
-                st.rerun()
-        else:
-            st.info("No animals available in registry for discharge.")
 
         st.divider()
         
@@ -550,10 +504,48 @@ if "Animal Registry" in selected_page:
                 
             st.dataframe(display_records, use_container_width=True)
             
+            # RELOCATED DISCHARGE & RELEASE / DELETE MODULE (Positioned below Global Registry Index)
+            st.divider()
+            st.markdown("### 🌿 Discharge & Release / Delete Animal")
+            st.caption("Release animals back to the wild (archiving history) or perform permanent record deletion.")
+            
+            all_records_del = []
+            in_order_bst(st.session_state.bst_root, all_records_del)
+            
+            if all_records_del:
+                del_options = {
+                    f"#{a['Animal ID']} - {a['Name']} ({a['Species Class']}) [{a['Habitat Zone']}]": a 
+                    for a in all_records_del
+                }
+                target_del_label = st.selectbox("Select Target Animal:", list(del_options.keys()), key="del_select_box")
+                target_animal = del_options[target_del_label]
+                target_del_id = target_animal["Animal ID"]
+                
+                action_type = st.radio("Action Type:", ["🌿 Release to Wild (Archive Node)", "🚨 Permanent Deletion"], horizontal=True)
+                release_note = st.text_input("Outcome / Release Notes", value="Successfully rehabilitated and released to natural habitat.")
+                
+                if st.button("Execute Record Action"):
+                    if action_type == "🌿 Release to Wild (Archive Node)":
+                        st.session_state.archive_dll.append(
+                            target_animal["Animal ID"],
+                            target_animal["Name"],
+                            target_animal["Species Class"],
+                            target_animal["Habitat Zone"],
+                            release_note
+                        )
+                        st.success(f"Archived and Released **{target_animal['Name']}** (ID: #{target_del_id}) to the wild!")
+                    else:
+                        st.warning(f"Permanently deleted Animal ID #{target_del_id}.")
+                    
+                    st.session_state.bst_root = delete_bst(st.session_state.bst_root, target_del_id)
+                    delete_from_general_tree(st.session_state.map_root, target_del_id)
+                    st.rerun()
+            else:
+                st.info("No animals available in registry for discharge.")
+            
         with tab2:
             st.markdown("### 🌳 Ecosystem Zone Capacity & Node Hierarchy")
             
-            # Display Eco-Zone Capacity Metrics
             cap_cols = st.columns(4)
             for i, zone in enumerate(PHILIPPINE_ZONES):
                 occ = get_zone_occupancy(st.session_state.map_root, zone)
@@ -587,7 +579,6 @@ if "Animal Registry" in selected_page:
             else:
                 st.info(f"No animals registered in **{selected_zone_filter}** yet.")
 
-        # SUGGESTION 3: Archived DLL Viewer Tab
         with tab3:
             st.markdown("### 🌿 Released & Archived Wildlife Directory")
             st.caption("Powered by an Archive Doubly Linked List storing historical records of rehabilitated animals.")
@@ -599,7 +590,7 @@ if "Animal Registry" in selected_page:
                 st.info("No animals have been released/archived yet.")
 
 # ==========================================================
-# 8. MODULE 2: HEALTH LOG & MEDICAL HISTORY (STATUS BADGES)
+# 8. MODULE 2: HEALTH LOG & MEDICAL HISTORY
 # ==========================================================
 
 elif "Health Log" in selected_page:
@@ -669,7 +660,6 @@ elif "Health Log" in selected_page:
 
             st.markdown("#### 📋 Log New Treatment Node")
             with st.form("med_form", clear_on_submit=True):
-                # SUGGESTION 5: Medical Log Quick-Tags & Priority Badges
                 status_tag = st.selectbox("Medical Status Badge:", STATUS_TAGS)
                 diagnosis = st.text_input("Diagnosis / Condition Note")
                 treatment = st.text_area("Treatment / Medication Administered")
@@ -772,7 +762,6 @@ elif "Admission" in selected_page:
             
             st.divider()
             
-            # Peek next candidate to check capacity before popping
             next_candidate = st.session_state.triage_heap.peek()
             
             if next_candidate:
