@@ -69,19 +69,11 @@ st.markdown("""
         padding: 10px 20px !important;
     }
     .stButton > button:hover { background-color: #34D399 !important; }
-    .terminal-card {
-        background-color: #020617 !important;
-        padding: 16px;
-        border-radius: 12px;
-        border-left: 4px solid #10B981;
-        border: 1px solid #1E293B;
-    }
-    .terminal-card pre { color: #34D399 !important; font-family: 'Courier New', monospace; margin: 0; }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. DSA CLASSES (BST, GENERAL TREE, DLL, STACKS, HEAP)
+# 2. DSA CLASSES (BST, GENERAL TREE, DLL, PRIORITY HEAP)
 # ==========================================================
 
 class BSTNode:
@@ -137,24 +129,6 @@ class DoublyLinkedList:
             curr = curr.next
         return records
 
-class FIFOQueue:
-    def __init__(self):
-        self.queue = []
-
-    def enqueue(self, animal_name, species, reason):
-        self.queue.append({
-            "Name": animal_name,
-            "Species": species,
-            "Reason": reason,
-            "Time": datetime.now().strftime("%H:%M:%S")
-        })
-
-    def dequeue(self):
-        return self.queue.pop(0) if self.queue else None
-
-    def is_empty(self):
-        return len(self.queue) == 0
-
 class MedicalPriorityQueueHeap:
     def __init__(self):
         self.heap = []
@@ -174,33 +148,6 @@ class MedicalPriorityQueueHeap:
 
     def get_sorted_list(self):
         return [item[2] for item in sorted(self.heap)]
-
-class ActionDualStack:
-    def __init__(self):
-        self.undo_stack = []
-        self.redo_stack = []
-
-    def record_action(self, action_text):
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.undo_stack.append(f"[{timestamp}] {action_text}")
-        self.redo_stack.clear()
-
-    def undo(self):
-        if self.undo_stack:
-            action = self.undo_stack.pop()
-            self.redo_stack.append(action)
-            return action
-        return None
-
-    def redo(self):
-        if self.redo_stack:
-            action = self.redo_stack.pop()
-            self.undo_stack.append(action)
-            return action
-        return None
-
-    def get_logs(self):
-        return list(reversed(self.undo_stack))
 
 # ==========================================================
 # 3. EXPLICIT SORTING & TRAVERSALS
@@ -268,13 +215,10 @@ SPECIES_CLASSES = [
 if "initialized" not in st.session_state:
     st.session_state.bst_root = None
     st.session_state.map_root = TreeNode("ANIMA Sanctuary (Philippines)")
-    
     st.session_state.map_root.children = [TreeNode(z) for z in PHILIPPINE_ZONES]
     
     st.session_state.health_dll = DoublyLinkedList()
-    st.session_state.routine_queue = FIFOQueue()
     st.session_state.triage_heap = MedicalPriorityQueueHeap()
-    st.session_state.audit_stacks = ActionDualStack()
     st.session_state.id_counter = 101
     st.session_state.initialized = True
 
@@ -298,7 +242,6 @@ if "initialized" not in st.session_state:
         # General Tree Insertion
         st.session_state.map_root.children[zone_idx].children.append(TreeNode(f"{name} (ID: #{aid})"))
         st.session_state.health_dll.append(aid, "Intake Checkup", "Passed physical evaluation.")
-        st.session_state.audit_stacks.record_action(f"Registered '{name}' ({species}) to {zone_name}.")
         st.session_state.id_counter += 1
 
     # Seed Native Wildlife
@@ -308,11 +251,11 @@ if "initialized" not in st.session_state:
     seed_initial("Kabag", "Mammals", "Karst Cave System", 3)
     seed_initial("Agila II", "Birds", "Mossy Cloud Mountain Forest", 2)
 
-    st.session_state.routine_queue.enqueue("Bakawan", "Reptiles", "Rescued from fish trap")
     st.session_state.triage_heap.push("Pilandok", "Mammals", 1, "Severe leg fracture / Emergency Triage")
+    st.session_state.triage_heap.push("Bakawan", "Reptiles", 3, "Rescued from fish trap / Routine Intake")
 
 # ==========================================================
-# 5. SIDEBAR NAVIGATION
+# 5. SIDEBAR NAVIGATION (3 MODULES ONLY)
 # ==========================================================
 
 with st.sidebar:
@@ -324,8 +267,7 @@ with st.sidebar:
         [
             "📋 Animal Registry & Map",
             "🩺 Health Log & Medical History",
-            "⏳ Admission & Release Queue",
-            "📜 Audit Trail & System Log"
+            "⏳ Admission & Release Queue"
         ]
     )
     st.divider()
@@ -336,12 +278,12 @@ with st.sidebar:
 st.title("ANIMA Sanctuary Operations")
 c1, c2, c3 = st.columns(3)
 c1.metric("Active Animals", st.session_state.id_counter - 101, delta="BST Indexed")
-c2.metric("Intake Queue", len(st.session_state.routine_queue.queue), delta="FIFO Queue")
+c2.metric("Intake Queue", len(st.session_state.triage_heap.heap), delta="Priority Heap")
 c3.metric("Next Registry ID", f"#{st.session_state.id_counter}", delta="Auto-Assigned")
 st.divider()
 
 # ==========================================================
-# 6. FEATURE 1: EXPANDED ANIMAL REGISTRY & MAP
+# 6. MODULE 1: ANIMAL REGISTRY & MAP
 # ==========================================================
 
 if "Animal Registry" in selected_page:
@@ -380,7 +322,6 @@ if "Animal Registry" in selected_page:
                 # General Tree Insert
                 st.session_state.map_root.children[zone_idx].children.append(TreeNode(f"{reg_name} (ID: #{aid})"))
                 st.session_state.health_dll.append(aid, "Intake Checkup", "Newly registered record created.")
-                st.session_state.audit_stacks.record_action(f"Registered '{reg_name}' (#{aid}) into {reg_zone}.")
                 
                 st.session_state.id_counter += 1
                 st.success(f"Registered {reg_name} (ID: #{aid})!")
@@ -402,7 +343,6 @@ if "Animal Registry" in selected_page:
                 found_node, steps = bst_search(st.session_state.bst_root, int(search_target))
                 if found_node:
                     st.success(f"Located in {steps} step(s): **{found_node.name}** ({found_node.species}) in *{found_node.zone}*")
-                    st.session_state.audit_stacks.record_action(f"BST Search ID #{search_target} -> Found '{found_node.name}'.")
                 else:
                     st.error(f"Animal ID #{search_target} not found in BST index.")
         else:
@@ -475,14 +415,13 @@ if "Animal Registry" in selected_page:
                 st.info(f"No animals registered in **{selected_zone_filter}** yet.")
 
 # ==========================================================
-# 7. FEATURE 2: HEALTH LOG & MEDICAL HISTORY (COMBINED SEARCH & ENTRY)
+# 7. MODULE 2: HEALTH LOG & MEDICAL HISTORY (DOUBLY LINKED LIST)
 # ==========================================================
 
 elif "Health Log" in selected_page:
     st.subheader("Animal Health Logs & Medical History (Doubly Linked List)")
     st.caption("Powered by a Doubly Linked List allowing forward and backward traversal through patient timelines.")
     
-    # Extract registered animals from BST
     all_animals = []
     in_order_bst(st.session_state.bst_root, all_animals)
     
@@ -496,7 +435,6 @@ elif "Health Log" in selected_page:
         else:
             st.markdown("#### 🔍 Patient Lookup & Selection")
             
-            # Integrated Search Setup for choosing the target patient
             add_search_mode = st.radio(
                 "Find Patient By:",
                 ["Name Autocomplete & Species Filter", "Numeric ID Search"],
@@ -508,7 +446,6 @@ elif "Health Log" in selected_page:
             selected_animal_info = None
             
             if add_search_mode == "Name Autocomplete & Species Filter":
-                # Species Filter (Optional)
                 med_spec_filter = st.selectbox(
                     "Filter Species Class:", 
                     ["-- All Species --"] + SPECIES_CLASSES, 
@@ -520,7 +457,6 @@ elif "Health Log" in selected_page:
                     filtered_patients = [a for a in filtered_patients if a["Species Class"] == med_spec_filter]
                 
                 if filtered_patients:
-                    # Dropdown displaying Name, ID, Species, and Zone
                     patient_options = {
                         f"#{a['Animal ID']} - {a['Name']} ({a['Species Class']}) [{a['Habitat Zone']}]": a 
                         for a in filtered_patients
@@ -539,7 +475,6 @@ elif "Health Log" in selected_page:
                 selected_target_id = int(query_id_input)
                 selected_animal_info = next((a for a in all_animals if a["Animal ID"] == selected_target_id), None)
             
-            # Patient Selection Summary Card
             if selected_animal_info:
                 st.info(
                     f"🎯 **Target Patient:** {selected_animal_info['Name']} (ID: #{selected_target_id})\n\n"
@@ -562,9 +497,6 @@ elif "Health Log" in selected_page:
                     else:
                         st.session_state.health_dll.append(selected_target_id, diagnosis, treatment)
                         patient_name = selected_animal_info['Name'] if selected_animal_info else f"ID #{selected_target_id}"
-                        st.session_state.audit_stacks.record_action(
-                            f"Appended Medical DLL node for '{patient_name}' (ID #{selected_target_id}): {diagnosis}"
-                        )
                         st.success(f"Medical entry logged for {patient_name}!")
                         st.rerun()
 
@@ -588,62 +520,70 @@ elif "Health Log" in selected_page:
             st.info("Select or search for an animal on the left panel to display its medical history.")
 
 # ==========================================================
-# 8. OTHER VIEWS (RETAINED)
+# 8. MODULE 3: UNIFIED ADMISSION & TRIAGE PIPELINE (PRIORITY HEAP)
 # ==========================================================
 
 elif "Admission" in selected_page:
-    st.subheader("Sanctuary Admission & Triage Pipeline")
-    t1, t2 = st.tabs(["⏳ Routine Admission Queue (FIFO Queue)", "🚨 Emergency Medical Triage (Priority Heap)"])
-    with t1:
-        cin, cv = st.columns([1, 2])
-        with cin:
-            with st.form("fifo_form", clear_on_submit=True):
-                qn = st.text_input("Animal Name")
-                qs = st.selectbox("Species Class", SPECIES_CLASSES)
-                qr = st.text_area("Reason for Intake")
-                if st.form_submit_button("Enqueue Intake") and qn:
-                    st.session_state.routine_queue.enqueue(qn, qs, qr)
-                    st.session_state.audit_stacks.record_action(f"Enqueued '{qn}' to FIFO Queue.")
+    st.subheader("Sanctuary Admission & Emergency Triage Pipeline")
+    st.caption("A unified intake engine powered by a Priority Heap with secondary FIFO arrival sequencing.")
+    
+    col_intake, col_queue_view = st.columns([1, 2])
+    
+    with col_intake:
+        st.markdown("### 📥 Animal Intake & Triage Registration")
+        with st.form("unified_intake_form", clear_on_submit=True):
+            intake_name = st.text_input("Animal / Rescue Name")
+            intake_species = st.selectbox("Species Class", SPECIES_CLASSES)
+            intake_priority = st.selectbox(
+                "Triage Priority Level:",
+                [1, 2, 3],
+                format_func=lambda x: f"Priority {x} - {'🚨 Critical Emergency (Immediate Care)' if x==1 else '⚠️ Urgent Care Required' if x==2 else '⏳ Routine Sanctuary Intake (FIFO)'}"
+            )
+            intake_reason = st.text_area("Intake Reason / Medical Condition")
+            
+            submit_intake = st.form_submit_button("Register & Enqueue Animal")
+            
+            if submit_intake:
+                if not intake_name or not intake_reason:
+                    st.error("Please fill in both the animal name and intake reason.")
+                else:
+                    st.session_state.triage_heap.push(
+                        intake_name, 
+                        intake_species, 
+                        intake_priority, 
+                        intake_reason
+                    )
+                    st.success(f"Successfully enqueued **{intake_name}** into Triage Pipeline!")
                     st.rerun()
-        with cv:
-            if not st.session_state.routine_queue.is_empty():
-                st.dataframe(st.session_state.routine_queue.queue, use_container_width=True)
-                if st.button("Dequeue Next Intake"):
-                    p = st.session_state.routine_queue.dequeue()
-                    st.session_state.audit_stacks.record_action(f"Dequeued intake for '{p['Name']}'.")
-                    st.rerun()
-            else: st.info("Routine intake queue is empty.")
-    with t2:
-        hin, hv = st.columns([1, 2])
-        with hin:
-            with st.form("heap_form", clear_on_submit=True):
-                hn = st.text_input("Critical Animal Name")
-                hs = st.selectbox("Species Class", SPECIES_CLASSES, key="h_sp")
-                hp = st.selectbox("Priority Level", [1, 2, 3], format_func=lambda x: f"Priority {x} - {'Emergency' if x==1 else 'Urgent' if x==2 else 'Routine'}")
-                hc = st.text_area("Emergency Condition")
-                if st.form_submit_button("Push Heap Node") and hn:
-                    st.session_state.triage_heap.push(hn, hs, hp, hc)
-                    st.session_state.audit_stacks.record_action(f"Pushed Priority-{hp} case '{hn}' to Heap.")
-                    st.rerun()
-        with hv:
-            sh = st.session_state.triage_heap.get_sorted_list()
-            if sh:
-                st.dataframe(sh, use_container_width=True)
-                if st.button("Pop Highest Priority Emergency Case"):
-                    cp = st.session_state.triage_heap.pop()
-                    st.session_state.audit_stacks.record_action(f"Popped emergency case '{cp['Name']}'.")
-                    st.rerun()
-            else: st.info("No emergency cases in heap.")
 
-elif "Audit Trail" in selected_page:
-    st.subheader("System Audit Trail & Operations Log (Dual-Stack Undo/Redo)")
-    b1, b2, _ = st.columns([1, 1, 2])
-    with b1:
-        if st.button("⏪ Undo (Pop Stack)") and (u := st.session_state.audit_stacks.undo()):
-            st.warning(f"Undid: {u}"); st.rerun()
-    with b2:
-        if st.button("⏩ Redo (Push Back)") and (r := st.session_state.audit_stacks.redo()):
-            st.success(f"Redone: {r}"); st.rerun()
-    logs = st.session_state.audit_stacks.get_logs()
-    if logs:
-        st.markdown(f'<div class="terminal-card"><pre>{"\n".join(logs)}</pre></div>', unsafe_allow_html=True)
+    with col_queue_view:
+        st.markdown("### 📋 Live Triage Processing Queue")
+        st.caption("Sorted automatically: Critical emergencies first, followed by routine arrivals in order of intake.")
+        
+        sorted_pipeline = st.session_state.triage_heap.get_sorted_list()
+        
+        if sorted_pipeline:
+            display_queue = []
+            for item in sorted_pipeline:
+                p_level = item["Priority Level"]
+                p_tag = "🚨 Priority 1 - Critical" if p_level == 1 else "⚠️ Priority 2 - Urgent" if p_level == 2 else "⏳ Priority 3 - Routine"
+                
+                display_queue.append({
+                    "Triage Status": p_tag,
+                    "Animal Name": item["Name"],
+                    "Species": item["Species"],
+                    "Condition / Reason": item["Condition"]
+                })
+            
+            st.dataframe(display_queue, use_container_width=True)
+            
+            st.divider()
+            if st.button("🩺 Process & Admit Next Animal (Pop Highest Priority)"):
+                next_patient = st.session_state.triage_heap.pop()
+                st.success(
+                    f"Attending to **{next_patient['Name']}** ({next_patient['Species']}) — "
+                    f"Condition: *{next_patient['Condition']}*"
+                )
+                st.rerun()
+        else:
+            st.info("The sanctuary intake pipeline is currently empty. All incoming animals have been processed!")
