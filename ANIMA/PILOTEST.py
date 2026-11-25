@@ -73,7 +73,42 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================================
-# 2. DSA CLASSES (BST, GENERAL TREE, DLL, PRIORITY HEAP)
+# 2. CONSTANTS & BOUNDS
+# ==========================================================
+
+PHILIPPINE_ZONES = [
+    "Lowland Dipterocarp Forest",
+    "Mangrove & Coastal Wetland",
+    "Mossy Cloud Mountain Forest",
+    "Karst Cave System"
+]
+
+# SUGGESTION 2: Physical Eco-Zone Capacity Limits
+ZONE_CAPACITIES = {
+    "Lowland Dipterocarp Forest": 5,
+    "Mangrove & Coastal Wetland": 4,
+    "Mossy Cloud Mountain Forest": 3,
+    "Karst Cave System": 4
+}
+
+SPECIES_CLASSES = [
+    "Mammals",
+    "Birds",
+    "Reptiles",
+    "Amphibians",
+    "Fish",
+    "Invertebrates"
+]
+
+# SUGGESTION 5: Status Badges / Health Tags
+STATUS_TAGS = [
+    "🟢 Cleared / Healthy",
+    "🟡 Under Observation",
+    "🔴 Critical Medical Hold"
+]
+
+# ==========================================================
+# 3. DSA CLASSES (BST, GENERAL TREE, DLL, HEAP, ARCHIVE DLL)
 # ==========================================================
 
 class BSTNode:
@@ -92,11 +127,12 @@ class TreeNode:
         self.children = []
 
 class DLLNode:
-    def __init__(self, animal_id, timestamp, diagnosis, treatment):
+    def __init__(self, animal_id, timestamp, diagnosis, treatment, status_tag="🟢 Cleared / Healthy"):
         self.animal_id = animal_id
         self.timestamp = timestamp
         self.diagnosis = diagnosis
         self.treatment = treatment
+        self.status_tag = status_tag
         self.prev = None
         self.next = None
 
@@ -105,9 +141,9 @@ class DoublyLinkedList:
         self.head = None
         self.tail = None
 
-    def append(self, animal_id, diagnosis, treatment):
+    def append(self, animal_id, diagnosis, treatment, status_tag="🟢 Cleared / Healthy"):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        new_node = DLLNode(animal_id, timestamp, diagnosis, treatment)
+        new_node = DLLNode(animal_id, timestamp, diagnosis, treatment, status_tag)
         if not self.head:
             self.head = new_node
             self.tail = new_node
@@ -123,9 +159,53 @@ class DoublyLinkedList:
             if curr.animal_id == animal_id:
                 records.append({
                     "Timestamp": curr.timestamp,
+                    "Status Tag": curr.status_tag,
                     "Diagnosis": curr.diagnosis,
                     "Treatment": curr.treatment
                 })
+            curr = curr.next
+        return records
+
+# SUGGESTION 3: Doubly Linked List for Archived / Released Animals
+class ArchiveDLLNode:
+    def __init__(self, animal_id, name, species, zone, release_date, release_notes):
+        self.animal_id = animal_id
+        self.name = name
+        self.species = species
+        self.zone = zone
+        self.release_date = release_date
+        self.release_notes = release_notes
+        self.prev = None
+        self.next = None
+
+class ArchiveDoublyLinkedList:
+    def __init__(self):
+        self.head = None
+        self.tail = None
+
+    def append(self, animal_id, name, species, zone, release_notes):
+        release_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+        new_node = ArchiveDLLNode(animal_id, name, species, zone, release_date, release_notes)
+        if not self.head:
+            self.head = new_node
+            self.tail = new_node
+        else:
+            self.tail.next = new_node
+            new_node.prev = self.tail
+            self.tail = new_node
+
+    def get_all_archived(self):
+        records = []
+        curr = self.head
+        while curr:
+            records.append({
+                "Animal ID": f"#{curr.animal_id}",
+                "Name": curr.name,
+                "Species Class": curr.species,
+                "Former Habitat": curr.zone,
+                "Release Timestamp": curr.release_date,
+                "Release Outcome Notes": curr.release_notes
+            })
             curr = curr.next
         return records
 
@@ -147,12 +227,22 @@ class MedicalPriorityQueueHeap:
     def pop(self):
         return heapq.heappop(self.heap)[2] if self.heap else None
 
+    def peek(self):
+        return sorted(self.heap)[0][2] if self.heap else None
+
     def get_sorted_list(self):
         return [item[2] for item in sorted(self.heap)]
 
 # ==========================================================
-# 3. EXPLICIT SORTING, TRAVERSALS & DELETION ALGORITHMS
+# 4. ALGORITHMS & TREE UTILITIES
 # ==========================================================
+
+def get_zone_occupancy(map_root, zone_name):
+    """Calculates current number of animals in a specific General Tree Habitat node."""
+    for zone_node in map_root.children:
+        if zone_node.node_name == zone_name:
+            return len(zone_node.children)
+    return 0
 
 def in_order_bst(node, records):
     """Populates registry list in ID order using BST In-Order Traversal."""
@@ -194,14 +284,13 @@ def bst_search(node, target_id):
     return None, steps
 
 def min_value_node(node):
-    """Finds the in-order successor (smallest node in right subtree)."""
     current = node
     while current.left is not None:
         current = current.left
     return current
 
 def delete_bst(root, target_id):
-    """Standard Recursive Binary Search Tree Deletion Algorithm."""
+    """Recursive Binary Search Tree Deletion Algorithm."""
     if root is None:
         return root
     if target_id < root.animal_id:
@@ -209,12 +298,10 @@ def delete_bst(root, target_id):
     elif target_id > root.animal_id:
         root.right = delete_bst(root.right, target_id)
     else:
-        # Case 1 & 2: Node with 0 or 1 child
         if root.left is None:
             return root.right
         elif root.right is None:
             return root.left
-        # Case 3: Node with 2 children
         temp = min_value_node(root.right)
         root.animal_id = temp.animal_id
         root.name = temp.name
@@ -233,24 +320,8 @@ def delete_from_general_tree(map_root, target_id):
         ]
 
 # ==========================================================
-# 4. INITIALIZATION & PHILIPPINE ENVIRONMENT DATA
+# 5. INITIALIZATION & SESSION STATE
 # ==========================================================
-
-PHILIPPINE_ZONES = [
-    "Lowland Dipterocarp Forest",
-    "Mangrove & Coastal Wetland",
-    "Mossy Cloud Mountain Forest",
-    "Karst Cave System"
-]
-
-SPECIES_CLASSES = [
-    "Mammals",
-    "Birds",
-    "Reptiles",
-    "Amphibians",
-    "Fish",
-    "Invertebrates"
-]
 
 if "initialized" not in st.session_state:
     st.session_state.bst_root = None
@@ -258,6 +329,7 @@ if "initialized" not in st.session_state:
     st.session_state.map_root.children = [TreeNode(z) for z in PHILIPPINE_ZONES]
     
     st.session_state.health_dll = DoublyLinkedList()
+    st.session_state.archive_dll = ArchiveDoublyLinkedList()
     st.session_state.triage_heap = MedicalPriorityQueueHeap()
     st.session_state.id_counter = 101
     st.session_state.initialized = True
@@ -281,7 +353,7 @@ if "initialized" not in st.session_state:
                     c = c.right
         # General Tree Insertion
         st.session_state.map_root.children[zone_idx].children.append(TreeNode(f"{name} (ID: #{aid})"))
-        st.session_state.health_dll.append(aid, "Intake Checkup", "Passed physical evaluation.")
+        st.session_state.health_dll.append(aid, "Intake Evaluation", "Passed physical evaluation.", "🟢 Cleared / Healthy")
         st.session_state.id_counter += 1
 
     # Seed Native Wildlife
@@ -295,7 +367,7 @@ if "initialized" not in st.session_state:
     st.session_state.triage_heap.push("Bakawan", "Reptiles", "Mangrove & Coastal Wetland", 3, "Rescued from fish trap / Routine Intake")
 
 # ==========================================================
-# 5. SIDEBAR NAVIGATION
+# 6. SIDEBAR NAVIGATION
 # ==========================================================
 
 with st.sidebar:
@@ -311,7 +383,8 @@ with st.sidebar:
         ]
     )
     st.divider()
-    st.caption(f"Registered Animals: {st.session_state.id_counter - 101}")
+    st.caption(f"Active Registered Animals: {st.session_state.id_counter - 101}")
+    st.caption(f"Archived Releases: {len(st.session_state.archive_dll.get_all_archived())}")
     st.caption(f"Active Eco-Zones: {len(PHILIPPINE_ZONES)}")
 
 # Header Metrics
@@ -323,7 +396,7 @@ c3.metric("Next Registry ID", f"#{st.session_state.id_counter}", delta="Auto-Ass
 st.divider()
 
 # ==========================================================
-# 6. MODULE 1: ANIMAL REGISTRY & MAP (WITH DELETION)
+# 7. MODULE 1: ANIMAL REGISTRY & MAP (WITH CAPACITY & ARCHIVE)
 # ==========================================================
 
 if "Animal Registry" in selected_page:
@@ -336,61 +409,89 @@ if "Animal Registry" in selected_page:
         with st.form("add_animal_form", clear_on_submit=True):
             reg_name = st.text_input("Animal Name (e.g., Agila, Pawikan)")
             reg_species = st.selectbox("Species Class", SPECIES_CLASSES)
-            reg_zone = st.selectbox("Philippine Ecosystem Zone", PHILIPPINE_ZONES)
+            reg_zone = st.selectbox(
+                "Philippine Ecosystem Zone", 
+                PHILIPPINE_ZONES,
+                format_func=lambda z: f"{z} (Occ: {get_zone_occupancy(st.session_state.map_root, z)}/{ZONE_CAPACITIES[z]})"
+            )
             submit_reg = st.form_submit_button("Complete Registration")
             
             if submit_reg and reg_name:
-                zone_idx = PHILIPPINE_ZONES.index(reg_zone)
-                aid = st.session_state.id_counter
+                # SUGGESTION 2: Capacity Check
+                current_occ = get_zone_occupancy(st.session_state.map_root, reg_zone)
+                max_cap = ZONE_CAPACITIES[reg_zone]
                 
-                # BST Insert
-                new_bst = BSTNode(aid, reg_name, reg_species, reg_zone)
-                if not st.session_state.bst_root:
-                    st.session_state.bst_root = new_bst
+                if current_occ >= max_cap:
+                    st.error(f"⛔ **Habitat Overflow Error:** '{reg_zone}' has reached maximum capacity ({current_occ}/{max_cap}). Please select another ecosystem zone.")
                 else:
-                    curr = st.session_state.bst_root
-                    while True:
-                        if aid < curr.animal_id:
-                            if not curr.left:
-                                curr.left = new_bst; break
-                            curr = curr.left
-                        else:
-                            if not curr.right:
-                                curr.right = new_bst; break
-                            curr = curr.right
-                
-                # General Tree Insert
-                st.session_state.map_root.children[zone_idx].children.append(TreeNode(f"{reg_name} (ID: #{aid})"))
-                st.session_state.health_dll.append(aid, "Intake Checkup", "Newly registered record created.")
-                
-                st.session_state.id_counter += 1
-                st.success(f"Registered {reg_name} (ID: #{aid})!")
-                st.rerun()
+                    zone_idx = PHILIPPINE_ZONES.index(reg_zone)
+                    aid = st.session_state.id_counter
+                    
+                    # BST Insert
+                    new_bst = BSTNode(aid, reg_name, reg_species, reg_zone)
+                    if not st.session_state.bst_root:
+                        st.session_state.bst_root = new_bst
+                    else:
+                        curr = st.session_state.bst_root
+                        while True:
+                            if aid < curr.animal_id:
+                                if not curr.left:
+                                    curr.left = new_bst; break
+                                curr = curr.left
+                            else:
+                                if not curr.right:
+                                    curr.right = new_bst; break
+                                curr = curr.right
+                    
+                    # General Tree Insert
+                    st.session_state.map_root.children[zone_idx].children.append(TreeNode(f"{reg_name} (ID: #{aid})"))
+                    st.session_state.health_dll.append(aid, "Intake Checkup", "Newly registered record created.", "🟢 Cleared / Healthy")
+                    
+                    st.session_state.id_counter += 1
+                    st.success(f"Registered {reg_name} (ID: #{aid}) into {reg_zone}!")
+                    st.rerun()
 
         st.divider()
         
-        # ANIMAL DELETION / DISCHARGE FEATURE
-        st.markdown("### 🗑️ Delete / Discharge Animal Record")
-        st.caption("Removes the animal node from both the BST Index and General Tree Habitat Hierarchy.")
+        # SUGGESTION 3: REHABILITATION & RELEASE ARCHIVING FEATURE
+        st.markdown("### 🌿 Discharge & Release / Delete Animal")
+        st.caption("Release animals back to the wild (archiving history) or perform permanent record deletion.")
         
         all_records_del = []
         in_order_bst(st.session_state.bst_root, all_records_del)
         
         if all_records_del:
             del_options = {
-                f"#{a['Animal ID']} - {a['Name']} ({a['Species Class']}) [{a['Habitat Zone']}]": a['Animal ID'] 
+                f"#{a['Animal ID']} - {a['Name']} ({a['Species Class']}) [{a['Habitat Zone']}]": a 
                 for a in all_records_del
             }
-            target_del_label = st.selectbox("Select Animal to Delete:", list(del_options.keys()), key="del_select_box")
-            target_del_id = del_options[target_del_label]
+            target_del_label = st.selectbox("Select Target Animal:", list(del_options.keys()), key="del_select_box")
+            target_animal = del_options[target_del_label]
+            target_del_id = target_animal["Animal ID"]
             
-            if st.button("🚨 Delete Animal Record"):
+            action_type = st.radio("Action Type:", ["🌿 Release to Wild (Archive Node)", "🚨 Permanent Deletion"], horizontal=True)
+            release_note = st.text_input("Outcome / Release Notes", value="Successfully rehabilitated and released to natural habitat.")
+            
+            if st.button("Execute Record Action"):
+                if action_type == "🌿 Release to Wild (Archive Node)":
+                    # Append to Archive Doubly Linked List
+                    st.session_state.archive_dll.append(
+                        target_animal["Animal ID"],
+                        target_animal["Name"],
+                        target_animal["Species Class"],
+                        target_animal["Habitat Zone"],
+                        release_note
+                    )
+                    st.success(f"Archived and Released **{target_animal['Name']}** (ID: #{target_del_id}) to the wild!")
+                else:
+                    st.warning(f"Permanently deleted Animal ID #{target_del_id}.")
+                
+                # Remove from BST and General Tree
                 st.session_state.bst_root = delete_bst(st.session_state.bst_root, target_del_id)
                 delete_from_general_tree(st.session_state.map_root, target_del_id)
-                st.success(f"Successfully deleted Animal ID #{target_del_id} from Sanctuary Registry!")
                 st.rerun()
         else:
-            st.info("No animals available in registry for deletion.")
+            st.info("No animals available in registry for discharge.")
 
         st.divider()
         
@@ -428,7 +529,7 @@ if "Animal Registry" in selected_page:
             st.dataframe(filtered_data, use_container_width=True)
 
     with right_col:
-        tab1, tab2 = st.tabs(["📋 Global Registry Index", "🌳 Philippine Habitat Map (General Tree)"])
+        tab1, tab2, tab3 = st.tabs(["📋 Global Registry Index", "🌳 Habitat Inspector & Capacities", "🌿 Released Archives (Archive DLL)"])
         
         with tab1:
             records = []
@@ -450,9 +551,16 @@ if "Animal Registry" in selected_page:
             st.dataframe(display_records, use_container_width=True)
             
         with tab2:
-            st.markdown("### 🌳 Habitat Zone Inspector")
-            st.caption("Traverses the General Tree structure (`map_root.children`) to display habitat nodes in tabular form.")
+            st.markdown("### 🌳 Ecosystem Zone Capacity & Node Hierarchy")
             
+            # Display Eco-Zone Capacity Metrics
+            cap_cols = st.columns(4)
+            for i, zone in enumerate(PHILIPPINE_ZONES):
+                occ = get_zone_occupancy(st.session_state.map_root, zone)
+                cap = ZONE_CAPACITIES[zone]
+                cap_cols[i].metric(zone.split(" ")[0], f"{occ} / {cap}", delta="Full" if occ>=cap else f"{cap-occ} spots left")
+            
+            st.divider()
             selected_zone_filter = st.selectbox(
                 "Filter by Habitat Zone Node:", 
                 ["-- All Habitat Zones (Full Tree) --"] + PHILIPPINE_ZONES
@@ -479,8 +587,19 @@ if "Animal Registry" in selected_page:
             else:
                 st.info(f"No animals registered in **{selected_zone_filter}** yet.")
 
+        # SUGGESTION 3: Archived DLL Viewer Tab
+        with tab3:
+            st.markdown("### 🌿 Released & Archived Wildlife Directory")
+            st.caption("Powered by an Archive Doubly Linked List storing historical records of rehabilitated animals.")
+            
+            archived_list = st.session_state.archive_dll.get_all_archived()
+            if archived_list:
+                st.dataframe(archived_list, use_container_width=True)
+            else:
+                st.info("No animals have been released/archived yet.")
+
 # ==========================================================
-# 7. MODULE 2: HEALTH LOG & MEDICAL HISTORY (DOUBLY LINKED LIST)
+# 8. MODULE 2: HEALTH LOG & MEDICAL HISTORY (STATUS BADGES)
 # ==========================================================
 
 elif "Health Log" in selected_page:
@@ -550,6 +669,8 @@ elif "Health Log" in selected_page:
 
             st.markdown("#### 📋 Log New Treatment Node")
             with st.form("med_form", clear_on_submit=True):
+                # SUGGESTION 5: Medical Log Quick-Tags & Priority Badges
+                status_tag = st.selectbox("Medical Status Badge:", STATUS_TAGS)
                 diagnosis = st.text_input("Diagnosis / Condition Note")
                 treatment = st.text_area("Treatment / Medication Administered")
                 submit_med = st.form_submit_button("Append Entry to Doubly Linked List")
@@ -560,9 +681,9 @@ elif "Health Log" in selected_page:
                     elif not diagnosis or not treatment:
                         st.error("Please provide both a diagnosis and treatment description.")
                     else:
-                        st.session_state.health_dll.append(selected_target_id, diagnosis, treatment)
+                        st.session_state.health_dll.append(selected_target_id, diagnosis, treatment, status_tag)
                         patient_name = selected_animal_info['Name'] if selected_animal_info else f"ID #{selected_target_id}"
-                        st.success(f"Medical entry logged for {patient_name}!")
+                        st.success(f"Medical entry logged for {patient_name} [{status_tag}]!")
                         st.rerun()
 
     with c_view:
@@ -585,12 +706,12 @@ elif "Health Log" in selected_page:
             st.info("Select or search for an animal on the left panel to display its medical history.")
 
 # ==========================================================
-# 8. MODULE 3: UNIFIED ADMISSION & SYSTEM ADMIT INTEGRATION
+# 9. MODULE 3: UNIFIED ADMISSION & CAPACITY-CHECKED ADMIT
 # ==========================================================
 
 elif "Admission" in selected_page:
     st.subheader("Sanctuary Admission & Emergency Triage Pipeline")
-    st.caption("A unified intake engine powered by a Priority Heap with automatic cross-module admission indexing.")
+    st.caption("A unified intake engine powered by a Priority Heap with ecosystem capacity enforcement.")
     
     col_intake, col_queue_view = st.columns([1, 2])
     
@@ -599,7 +720,11 @@ elif "Admission" in selected_page:
         with st.form("unified_intake_form", clear_on_submit=True):
             intake_name = st.text_input("Animal / Rescue Name")
             intake_species = st.selectbox("Species Class", SPECIES_CLASSES)
-            intake_zone = st.selectbox("Target Philippine Ecosystem Zone", PHILIPPINE_ZONES)
+            intake_zone = st.selectbox(
+                "Target Philippine Ecosystem Zone", 
+                PHILIPPINE_ZONES,
+                format_func=lambda z: f"{z} (Occ: {get_zone_occupancy(st.session_state.map_root, z)}/{ZONE_CAPACITIES[z]})"
+            )
             intake_priority = st.selectbox(
                 "Triage Priority Level:",
                 [1, 2, 3],
@@ -646,45 +771,66 @@ elif "Admission" in selected_page:
             st.dataframe(display_queue, use_container_width=True)
             
             st.divider()
-            if st.button("🩺 Process & Admit Next Animal to Global System"):
-                # Pop next animal from Heap
-                next_patient = st.session_state.triage_heap.pop()
-                aid = st.session_state.id_counter
+            
+            # Peek next candidate to check capacity before popping
+            next_candidate = st.session_state.triage_heap.peek()
+            
+            if next_candidate:
+                target_z = next_candidate['Zone']
+                current_occ = get_zone_occupancy(st.session_state.map_root, target_z)
+                max_cap = ZONE_CAPACITIES[target_z]
                 
-                # 1. Insert into BST Index
-                new_bst = BSTNode(aid, next_patient['Name'], next_patient['Species'], next_patient['Zone'])
-                if not st.session_state.bst_root:
-                    st.session_state.bst_root = new_bst
+                if current_occ >= max_cap:
+                    st.error(
+                        f"⛔ **Admission Blocked:** Next candidate **{next_candidate['Name']}** cannot be admitted. "
+                        f"Target habitat **'{target_z}'** is at full capacity ({current_occ}/{max_cap}). "
+                        f"Please release/discharge an animal from '{target_z}' first."
+                    )
                 else:
-                    curr = st.session_state.bst_root
-                    while True:
-                        if aid < curr.animal_id:
-                            if not curr.left:
-                                curr.left = new_bst; break
-                            curr = curr.left
+                    if st.button(f"🩺 Process & Admit Next Animal ({next_candidate['Name']}) to Global System"):
+                        next_patient = st.session_state.triage_heap.pop()
+                        aid = st.session_state.id_counter
+                        
+                        # 1. Insert into BST Index
+                        new_bst = BSTNode(aid, next_patient['Name'], next_patient['Species'], next_patient['Zone'])
+                        if not st.session_state.bst_root:
+                            st.session_state.bst_root = new_bst
                         else:
-                            if not curr.right:
-                                curr.right = new_bst; break
-                            curr = curr.right
-                
-                # 2. Insert into General Tree Habitat Hierarchy
-                zone_idx = PHILIPPINE_ZONES.index(next_patient['Zone'])
-                st.session_state.map_root.children[zone_idx].children.append(
-                    TreeNode(f"{next_patient['Name']} (ID: #{aid})")
-                )
-                
-                # 3. Create Initial Medical Log in Doubly Linked List
-                st.session_state.health_dll.append(
-                    aid, 
-                    f"Admitted from Intake Queue: {next_patient['Condition']}", 
-                    "Assigned sanctuary housing and passed medical evaluation."
-                )
-                
-                st.session_state.id_counter += 1
-                st.success(
-                    f"Admitted **{next_patient['Name']}** into **{next_patient['Zone']}**! "
-                    f"Assigned Animal ID: **#{aid}** (Added to Global Registry & Health Log)."
-                )
-                st.rerun()
+                            curr = st.session_state.bst_root
+                            while True:
+                                if aid < curr.animal_id:
+                                    if not curr.left:
+                                        curr.left = new_bst; break
+                                    curr = curr.left
+                                else:
+                                    if not curr.right:
+                                        curr.right = new_bst; break
+                                    curr = curr.right
+                        
+                        # 2. Insert into General Tree Hierarchy
+                        zone_idx = PHILIPPINE_ZONES.index(next_patient['Zone'])
+                        st.session_state.map_root.children[zone_idx].children.append(
+                            TreeNode(f"{next_patient['Name']} (ID: #{aid})")
+                        )
+                        
+                        # 3. Initial Health Log with Status Badge mapping
+                        auto_status_tag = (
+                            "🔴 Critical Medical Hold" if next_patient['Priority Level'] == 1 
+                            else "🟡 Under Observation" if next_patient['Priority Level'] == 2 
+                            else "🟢 Cleared / Healthy"
+                        )
+                        st.session_state.health_dll.append(
+                            aid, 
+                            f"Admitted from Triage: {next_patient['Condition']}", 
+                            "Assigned housing and started care plan.",
+                            auto_status_tag
+                        )
+                        
+                        st.session_state.id_counter += 1
+                        st.success(
+                            f"Admitted **{next_patient['Name']}** into **{next_patient['Zone']}**! "
+                            f"Assigned ID: **#{aid}** [{auto_status_tag}]."
+                        )
+                        st.rerun()
         else:
             st.info("The sanctuary intake pipeline is currently empty. All incoming animals have been processed!")
