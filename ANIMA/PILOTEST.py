@@ -269,7 +269,6 @@ if "initialized" not in st.session_state:
     st.session_state.bst_root = None
     st.session_state.map_root = TreeNode("ANIMA Sanctuary (Philippines)")
     
-    # Build Philippine General Tree Habitat Branches
     st.session_state.map_root.children = [TreeNode(z) for z in PHILIPPINE_ZONES]
     
     st.session_state.health_dll = DoublyLinkedList()
@@ -302,7 +301,7 @@ if "initialized" not in st.session_state:
         st.session_state.audit_stacks.record_action(f"Registered '{name}' ({species}) to {zone_name}.")
         st.session_state.id_counter += 1
 
-    # Native Philippine Wildlife Demo Data
+    # Seed Native Wildlife
     seed_initial("Agila", "Birds", "Mossy Cloud Mountain Forest", 2)
     seed_initial("Tami", "Mammals", "Lowland Dipterocarp Forest", 0)
     seed_initial("Pawikan", "Reptiles", "Mangrove & Coastal Wetland", 1)
@@ -392,7 +391,6 @@ if "Animal Registry" in selected_page:
         # SEARCH & MULTI-FILTER ENGINE
         st.markdown("### 🔍 Search & Multi-Filter Engine")
         
-        # Collect current records from BST
         all_records = []
         in_order_bst(st.session_state.bst_root, all_records)
         
@@ -408,13 +406,11 @@ if "Animal Registry" in selected_page:
                 else:
                     st.error(f"Animal ID #{search_target} not found in BST index.")
         else:
-            # Name Autocomplete & Attribute Filtering
             existing_names = sorted(list(set([r["Name"] for r in all_records])))
             filter_name = st.selectbox("Select/Type Animal Name:", ["-- All Names --"] + existing_names)
             filter_species = st.selectbox("Filter Species Class:", ["-- All Species --"] + SPECIES_CLASSES)
             filter_zone = st.selectbox("Filter Habitat Zone:", ["-- All Ecosystems --"] + PHILIPPINE_ZONES)
             
-            # Filter application logic
             filtered_data = all_records
             if filter_name != "-- All Names --":
                 filtered_data = [r for r in filtered_data if r["Name"] == filter_name]
@@ -433,7 +429,6 @@ if "Animal Registry" in selected_page:
             records = []
             in_order_bst(st.session_state.bst_root, records)
             
-            # SORTING CONTROLS
             sort_c1, sort_c2 = st.columns(2)
             with sort_c1:
                 sort_key = st.selectbox("Sort Table By:", ["Animal ID (BST Traversal Order)", "Name", "Species Class", "Habitat Zone"])
@@ -442,7 +437,6 @@ if "Animal Registry" in selected_page:
                 
             reverse_flag = (sort_order == "Descending")
             
-            # Execute sorting
             if sort_key == "Animal ID (BST Traversal Order)":
                 display_records = records if not reverse_flag else list(reversed(records))
             else:
@@ -481,83 +475,117 @@ if "Animal Registry" in selected_page:
                 st.info(f"No animals registered in **{selected_zone_filter}** yet.")
 
 # ==========================================================
-# 7. FEATURE 2: HEALTH LOG & MEDICAL HISTORY (DOUBLY LINKED LIST SEARCH ENGINE)
+# 7. FEATURE 2: HEALTH LOG & MEDICAL HISTORY (COMBINED SEARCH & ENTRY)
 # ==========================================================
 
 elif "Health Log" in selected_page:
     st.subheader("Animal Health Logs & Medical History (Doubly Linked List)")
     st.caption("Powered by a Doubly Linked List allowing forward and backward traversal through patient timelines.")
     
+    # Extract registered animals from BST
+    all_animals = []
+    in_order_bst(st.session_state.bst_root, all_animals)
+    
     c_in, c_view = st.columns([1, 2])
     
     with c_in:
         st.markdown("### 📝 Add Medical Entry")
-        with st.form("med_form", clear_on_submit=True):
-            target_id = st.number_input("Target Animal ID", min_value=101, step=1)
-            diagnosis = st.text_input("Diagnosis / Condition")
-            treatment = st.text_area("Treatment Administered")
-            if st.form_submit_button("Append DLL Node") and diagnosis:
-                st.session_state.health_dll.append(int(target_id), diagnosis, treatment)
-                st.session_state.audit_stacks.record_action(f"Appended DLL record for ID #{target_id}.")
-                st.success(f"Log appended for ID #{target_id}.")
-                st.rerun()
+        
+        if not all_animals:
+            st.warning("No animals registered in the sanctuary yet. Please register an animal first.")
+        else:
+            st.markdown("#### 🔍 Patient Lookup & Selection")
+            
+            # Integrated Search Setup for choosing the target patient
+            add_search_mode = st.radio(
+                "Find Patient By:",
+                ["Name Autocomplete & Species Filter", "Numeric ID Search"],
+                horizontal=True,
+                key="add_med_search_mode"
+            )
+            
+            selected_target_id = None
+            selected_animal_info = None
+            
+            if add_search_mode == "Name Autocomplete & Species Filter":
+                # Species Filter (Optional)
+                med_spec_filter = st.selectbox(
+                    "Filter Species Class:", 
+                    ["-- All Species --"] + SPECIES_CLASSES, 
+                    key="add_med_spec_filter"
+                )
+                
+                filtered_patients = all_animals
+                if med_spec_filter != "-- All Species --":
+                    filtered_patients = [a for a in filtered_patients if a["Species Class"] == med_spec_filter]
+                
+                if filtered_patients:
+                    # Dropdown displaying Name, ID, Species, and Zone
+                    patient_options = {
+                        f"#{a['Animal ID']} - {a['Name']} ({a['Species Class']}) [{a['Habitat Zone']}]": a 
+                        for a in filtered_patients
+                    }
+                    chosen_patient_label = st.selectbox(
+                        "Type / Select Target Patient:", 
+                        list(patient_options.keys()), 
+                        key="add_med_patient_choice"
+                    )
+                    selected_animal_info = patient_options[chosen_patient_label]
+                    selected_target_id = selected_animal_info["Animal ID"]
+                else:
+                    st.warning("No animal records match the selected species filter.")
+            else:
+                query_id_input = st.number_input("Enter Animal ID:", min_value=101, step=1, key="add_med_id_input")
+                selected_target_id = int(query_id_input)
+                selected_animal_info = next((a for a in all_animals if a["Animal ID"] == selected_target_id), None)
+            
+            # Patient Selection Summary Card
+            if selected_animal_info:
+                st.info(
+                    f"🎯 **Target Patient:** {selected_animal_info['Name']} (ID: #{selected_target_id})\n\n"
+                    f"• Class: **{selected_animal_info['Species Class']}** | Habitat: **{selected_animal_info['Habitat Zone']}**"
+                )
+            elif selected_target_id:
+                st.caption(f"Target Patient ID: #{selected_target_id} (Unindexed)")
+
+            st.markdown("#### 📋 Log New Treatment Node")
+            with st.form("med_form", clear_on_submit=True):
+                diagnosis = st.text_input("Diagnosis / Condition Note")
+                treatment = st.text_area("Treatment / Medication Administered")
+                submit_med = st.form_submit_button("Append Entry to Doubly Linked List")
+                
+                if submit_med:
+                    if not selected_target_id:
+                        st.error("Please select a valid animal before submitting.")
+                    elif not diagnosis or not treatment:
+                        st.error("Please provide both a diagnosis and treatment description.")
+                    else:
+                        st.session_state.health_dll.append(selected_target_id, diagnosis, treatment)
+                        patient_name = selected_animal_info['Name'] if selected_animal_info else f"ID #{selected_target_id}"
+                        st.session_state.audit_stacks.record_action(
+                            f"Appended Medical DLL node for '{patient_name}' (ID #{selected_target_id}): {diagnosis}"
+                        )
+                        st.success(f"Medical entry logged for {patient_name}!")
+                        st.rerun()
 
     with c_view:
-        st.markdown("### 🔬 Patient Medical History Search Engine")
+        st.markdown("### 🔬 Patient Medical Timeline (DLL View)")
         
-        # Retrieve all records from BST to power Name & Species filtering
-        all_animals = []
-        in_order_bst(st.session_state.bst_root, all_animals)
-        
-        med_search_mode = st.radio(
-            "Search Method:", 
-            ["Numeric ID Search", "Name & Species Filter"], 
-            horizontal=True, 
-            key="med_search_mode"
-        )
-        
-        selected_patient_id = None
-        
-        if med_search_mode == "Numeric ID Search":
-            query_id = st.number_input("Enter Animal ID to View History", min_value=101, step=1, key="q_med_id")
-            selected_patient_id = int(query_id)
-        else:
-            # Autocomplete Name & Species Dropdown Filter (No Habitat Filter)
-            existing_names = sorted(list(set([r["Name"] for r in all_animals])))
-            filter_med_name = st.selectbox("Select/Type Animal Name:", ["-- All Names --"] + existing_names, key="med_filter_name")
-            filter_med_species = st.selectbox("Filter Species Class:", ["-- All Species --"] + SPECIES_CLASSES, key="med_filter_species")
+        if selected_target_id:
+            patient_history = st.session_state.health_dll.get_patient_history(selected_target_id)
             
-            matching_patients = all_animals
-            if filter_med_name != "-- All Names --":
-                matching_patients = [a for a in matching_patients if a["Name"] == filter_med_name]
-            if filter_med_species != "-- All Species --":
-                matching_patients = [a for a in matching_patients if a["Species Class"] == filter_med_species]
-                
-            if matching_patients:
-                # Build option mapping to handle identical names
-                patient_options = {f"#{a['Animal ID']} - {a['Name']} ({a['Species Class']})": a["Animal ID"] for a in matching_patients}
-                chosen_patient_label = st.selectbox("Select Patient Record:", list(patient_options.keys()), key="med_patient_choice")
-                selected_patient_id = patient_options[chosen_patient_label]
+            if selected_animal_info:
+                st.markdown(f"#### Active Timeline: **{selected_animal_info['Name']}** (ID: #{selected_target_id})")
+                st.caption(f"Species Class: **{selected_animal_info['Species Class']}** | Ecosystem: **{selected_animal_info['Habitat Zone']}**")
             else:
-                st.warning("No animal records match the selected Name and Species filters.")
-
-        st.divider()
-        
-        # Display DLL Medical Timeline
-        if selected_patient_id:
-            patient_history = st.session_state.health_dll.get_patient_history(selected_patient_id)
-            patient_info = next((a for a in all_animals if a["Animal ID"] == selected_patient_id), None)
-            
-            if patient_info:
-                st.markdown(f"#### Medical Timeline: **{patient_info['Name']}** (ID: #{selected_patient_id})")
-                st.caption(f"Species Class: **{patient_info['Species Class']}** | Habitat: **{patient_info['Habitat Zone']}**")
-            else:
-                st.markdown(f"#### Medical Timeline for Animal ID: #{selected_patient_id}")
+                st.markdown(f"#### Active Timeline for Animal ID: #{selected_target_id}")
                 
             if patient_history:
                 st.dataframe(patient_history, use_container_width=True)
             else:
-                st.info(f"No medical log nodes recorded for Animal ID #{selected_patient_id} yet.")
+                st.info(f"No medical treatment entries logged for ID #{selected_target_id} yet.")
+        else:
+            st.info("Select or search for an animal on the left panel to display its medical history.")
 
 # ==========================================================
 # 8. OTHER VIEWS (RETAINED)
