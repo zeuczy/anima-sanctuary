@@ -134,11 +134,12 @@ class MedicalPriorityQueueHeap:
         self.heap = []
         self.count = 0
 
-    def push(self, animal_name, species, priority_level, condition):
+    def push(self, animal_name, species, zone, priority_level, condition):
         self.count += 1
         heapq.heappush(self.heap, (priority_level, self.count, {
             "Name": animal_name,
             "Species": species,
+            "Zone": zone,
             "Priority Level": priority_level,
             "Condition": condition
         }))
@@ -150,7 +151,7 @@ class MedicalPriorityQueueHeap:
         return [item[2] for item in sorted(self.heap)]
 
 # ==========================================================
-# 3. EXPLICIT SORTING & TRAVERSALS
+# 3. EXPLICIT SORTING, TRAVERSALS & DELETION ALGORITHMS
 # ==========================================================
 
 def in_order_bst(node, records):
@@ -191,6 +192,45 @@ def bst_search(node, target_id):
         else:
             curr = curr.right
     return None, steps
+
+def min_value_node(node):
+    """Finds the in-order successor (smallest node in right subtree)."""
+    current = node
+    while current.left is not None:
+        current = current.left
+    return current
+
+def delete_bst(root, target_id):
+    """Standard Recursive Binary Search Tree Deletion Algorithm."""
+    if root is None:
+        return root
+    if target_id < root.animal_id:
+        root.left = delete_bst(root.left, target_id)
+    elif target_id > root.animal_id:
+        root.right = delete_bst(root.right, target_id)
+    else:
+        # Case 1 & 2: Node with 0 or 1 child
+        if root.left is None:
+            return root.right
+        elif root.right is None:
+            return root.left
+        # Case 3: Node with 2 children
+        temp = min_value_node(root.right)
+        root.animal_id = temp.animal_id
+        root.name = temp.name
+        root.species = temp.species
+        root.zone = temp.zone
+        root.status = temp.status
+        root.right = delete_bst(root.right, temp.animal_id)
+    return root
+
+def delete_from_general_tree(map_root, target_id):
+    """Removes animal node from General Tree habitat hierarchy."""
+    for zone_node in map_root.children:
+        zone_node.children = [
+            child for child in zone_node.children 
+            if not (f"(ID: #{target_id})" in child.node_name or f"(ID: {target_id})" in child.node_name)
+        ]
 
 # ==========================================================
 # 4. INITIALIZATION & PHILIPPINE ENVIRONMENT DATA
@@ -251,11 +291,11 @@ if "initialized" not in st.session_state:
     seed_initial("Kabag", "Mammals", "Karst Cave System", 3)
     seed_initial("Agila II", "Birds", "Mossy Cloud Mountain Forest", 2)
 
-    st.session_state.triage_heap.push("Pilandok", "Mammals", 1, "Severe leg fracture / Emergency Triage")
-    st.session_state.triage_heap.push("Bakawan", "Reptiles", 3, "Rescued from fish trap / Routine Intake")
+    st.session_state.triage_heap.push("Pilandok", "Mammals", "Lowland Dipterocarp Forest", 1, "Severe leg fracture / Emergency Triage")
+    st.session_state.triage_heap.push("Bakawan", "Reptiles", "Mangrove & Coastal Wetland", 3, "Rescued from fish trap / Routine Intake")
 
 # ==========================================================
-# 5. SIDEBAR NAVIGATION (3 MODULES ONLY)
+# 5. SIDEBAR NAVIGATION
 # ==========================================================
 
 with st.sidebar:
@@ -283,7 +323,7 @@ c3.metric("Next Registry ID", f"#{st.session_state.id_counter}", delta="Auto-Ass
 st.divider()
 
 # ==========================================================
-# 6. MODULE 1: ANIMAL REGISTRY & MAP
+# 6. MODULE 1: ANIMAL REGISTRY & MAP (WITH DELETION)
 # ==========================================================
 
 if "Animal Registry" in selected_page:
@@ -326,6 +366,31 @@ if "Animal Registry" in selected_page:
                 st.session_state.id_counter += 1
                 st.success(f"Registered {reg_name} (ID: #{aid})!")
                 st.rerun()
+
+        st.divider()
+        
+        # ANIMAL DELETION / DISCHARGE FEATURE
+        st.markdown("### 🗑️ Delete / Discharge Animal Record")
+        st.caption("Removes the animal node from both the BST Index and General Tree Habitat Hierarchy.")
+        
+        all_records_del = []
+        in_order_bst(st.session_state.bst_root, all_records_del)
+        
+        if all_records_del:
+            del_options = {
+                f"#{a['Animal ID']} - {a['Name']} ({a['Species Class']}) [{a['Habitat Zone']}]": a['Animal ID'] 
+                for a in all_records_del
+            }
+            target_del_label = st.selectbox("Select Animal to Delete:", list(del_options.keys()), key="del_select_box")
+            target_del_id = del_options[target_del_label]
+            
+            if st.button("🚨 Delete Animal Record"):
+                st.session_state.bst_root = delete_bst(st.session_state.bst_root, target_del_id)
+                delete_from_general_tree(st.session_state.map_root, target_del_id)
+                st.success(f"Successfully deleted Animal ID #{target_del_id} from Sanctuary Registry!")
+                st.rerun()
+        else:
+            st.info("No animals available in registry for deletion.")
 
         st.divider()
         
@@ -431,7 +496,7 @@ elif "Health Log" in selected_page:
         st.markdown("### 📝 Add Medical Entry")
         
         if not all_animals:
-            st.warning("No animals registered in the sanctuary yet. Please register an animal first.")
+            st.warning("No animals registered in the sanctuary yet. Please register or admit an animal first.")
         else:
             st.markdown("#### 🔍 Patient Lookup & Selection")
             
@@ -520,12 +585,12 @@ elif "Health Log" in selected_page:
             st.info("Select or search for an animal on the left panel to display its medical history.")
 
 # ==========================================================
-# 8. MODULE 3: UNIFIED ADMISSION & TRIAGE PIPELINE (PRIORITY HEAP)
+# 8. MODULE 3: UNIFIED ADMISSION & SYSTEM ADMIT INTEGRATION
 # ==========================================================
 
 elif "Admission" in selected_page:
     st.subheader("Sanctuary Admission & Emergency Triage Pipeline")
-    st.caption("A unified intake engine powered by a Priority Heap with secondary FIFO arrival sequencing.")
+    st.caption("A unified intake engine powered by a Priority Heap with automatic cross-module admission indexing.")
     
     col_intake, col_queue_view = st.columns([1, 2])
     
@@ -534,6 +599,7 @@ elif "Admission" in selected_page:
         with st.form("unified_intake_form", clear_on_submit=True):
             intake_name = st.text_input("Animal / Rescue Name")
             intake_species = st.selectbox("Species Class", SPECIES_CLASSES)
+            intake_zone = st.selectbox("Target Philippine Ecosystem Zone", PHILIPPINE_ZONES)
             intake_priority = st.selectbox(
                 "Triage Priority Level:",
                 [1, 2, 3],
@@ -541,7 +607,7 @@ elif "Admission" in selected_page:
             )
             intake_reason = st.text_area("Intake Reason / Medical Condition")
             
-            submit_intake = st.form_submit_button("Register & Enqueue Animal")
+            submit_intake = st.form_submit_button("Enqueue Animal for Admission")
             
             if submit_intake:
                 if not intake_name or not intake_reason:
@@ -550,6 +616,7 @@ elif "Admission" in selected_page:
                     st.session_state.triage_heap.push(
                         intake_name, 
                         intake_species, 
+                        intake_zone,
                         intake_priority, 
                         intake_reason
                     )
@@ -572,17 +639,51 @@ elif "Admission" in selected_page:
                     "Triage Status": p_tag,
                     "Animal Name": item["Name"],
                     "Species": item["Species"],
+                    "Target Ecosystem": item["Zone"],
                     "Condition / Reason": item["Condition"]
                 })
             
             st.dataframe(display_queue, use_container_width=True)
             
             st.divider()
-            if st.button("🩺 Process & Admit Next Animal (Pop Highest Priority)"):
+            if st.button("🩺 Process & Admit Next Animal to Global System"):
+                # Pop next animal from Heap
                 next_patient = st.session_state.triage_heap.pop()
+                aid = st.session_state.id_counter
+                
+                # 1. Insert into BST Index
+                new_bst = BSTNode(aid, next_patient['Name'], next_patient['Species'], next_patient['Zone'])
+                if not st.session_state.bst_root:
+                    st.session_state.bst_root = new_bst
+                else:
+                    curr = st.session_state.bst_root
+                    while True:
+                        if aid < curr.animal_id:
+                            if not curr.left:
+                                curr.left = new_bst; break
+                            curr = curr.left
+                        else:
+                            if not curr.right:
+                                curr.right = new_bst; break
+                            curr = curr.right
+                
+                # 2. Insert into General Tree Habitat Hierarchy
+                zone_idx = PHILIPPINE_ZONES.index(next_patient['Zone'])
+                st.session_state.map_root.children[zone_idx].children.append(
+                    TreeNode(f"{next_patient['Name']} (ID: #{aid})")
+                )
+                
+                # 3. Create Initial Medical Log in Doubly Linked List
+                st.session_state.health_dll.append(
+                    aid, 
+                    f"Admitted from Intake Queue: {next_patient['Condition']}", 
+                    "Assigned sanctuary housing and passed medical evaluation."
+                )
+                
+                st.session_state.id_counter += 1
                 st.success(
-                    f"Attending to **{next_patient['Name']}** ({next_patient['Species']}) — "
-                    f"Condition: *{next_patient['Condition']}*"
+                    f"Admitted **{next_patient['Name']}** into **{next_patient['Zone']}**! "
+                    f"Assigned Animal ID: **#{aid}** (Added to Global Registry & Health Log)."
                 )
                 st.rerun()
         else:
